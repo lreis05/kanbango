@@ -1,17 +1,44 @@
 version: '3.8'
 
 services:
+  # Servidor do Banco de Dados
+  kanban-db:
+    image: postgres:15-alpine
+    container_name: kanban-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: dukan
+      POSTGRES_PASSWORD: New4ever@30.
+      POSTGRES_DB: kanban_database
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Seu Back-end existente
   kanban-backend:
     build: ./backend
+    container_name: kanban-api
+    restart: always
     ports:
       - "5000:5000"
+    environment:
+      # O Node vai usar essa linha para saber como se conectar ao Postgres
+      - DATABASE_URL=postgres://dukan:New4ever@30.@kanban-db:5432/kanban_database
+    depends_on:
+      - kanban-db
 
-  
+  # Seu Front-end estilo MeisterTask
   kanban-frontend:
     build: ./frontend
+    container_name: kanban-web
+    restart: always
     ports:
       - "80:80"
     volumes:
-      - ./frontend:/usr/share/nginx/html # Adicione esta linha
+      - ./frontend:/usr/share/nginx/html
     depends_on:
       - kanban-backend
+
+volumes:
+  postgres_data: # Garante que os dados no sumam ao desligar o container

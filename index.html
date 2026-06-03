@@ -2,40 +2,147 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Meu Kanban Docker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban Go </title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f5f7; display: flex; justify-content: center; padding: 20px; }
-        .board { display: flex; gap: 20px; }
-        .column { background: #ebecf0; border-radius: 5px; width: 250px; padding: 10px; min-height: 400px; }
-        .column h3 { text-align: center; color: #172b4d; }
-        .card { background: white; padding: 10px; margin: 10px 0; border-radius: 3px; box-shadow: 0 1px 0 rgba(9,30,66,.25); }
+        /* Estilo para suavizar o visual do arrastar */
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
     </style>
 </head>
-<body>
-    <div class="board">     
-       <div class="column"><h3>Aberto</h3><div id="todo"></div></div>
-       <div class="column"><h3>Pregão</h3><div id="todo"></div></div>
-       <div class="column"><h3>Lance</h3><div id="todo"></div></div>
-       <div class="column"><h3>Habilitação</h3><div id="todo"></div></div>
-       <div class="column"><h3>Empenho</h3><div id="todo"></div></div>
-       <div class="column"><h3>Concluído</h3><div id="todo"></div></div>
-    </div>
+<body class="bg-[#F8F9FA] min-h-screen font-sans text-[#2F3342]">
+
+    <header class="bg-white border-b border-[#E6E8EB] px-8 py-4 flex justify-between items-center shadow-xs">
+        <h1 class="text-xl font-bold tracking-tight text-[#1F232F]">Meu Projeto Kanban</h1>
+        
+        <div class="flex gap-2">
+            <input type="text" id="task-title" placeholder="Nova tarefa..." 
+                   class="px-4 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:border-[#4A90E2] w-64 bg-white">
+            <button onclick="createTask()" 
+                    class="bg-[#4A90E2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#357ABD] transition cursor-pointer">
+                + Adicionar
+            </button>
+        </div>
+    </header>
+
+    <main class="p-8">
+        <div class="flex gap-6 items-start overflow-x-auto">
+            
+            <div class="bg-[#F1F3F5] rounded-xl p-4 w-80 shrink-0 shadow-xs border border-[#E6E8EB]">
+                <div class="flex items-center justify-between mb-4 px-1">
+                    <h3 class="font-semibold text-sm tracking-wide text-[#6B7280] uppercase">A Fazer</h3>
+                    <span class="bg-[#E5E7EB] text-[#4B5563] text-xs px-2 py-0.5 rounded-full font-bold" id="count-todo">0</span>
+                </div>
+                <div id="todo" class="space-y-3 min-h-[500px] transition-colors duration-200" ondragover="allowDrop(event)" ondrop="drop(event, 'todo')"></div>
+            </div>
+
+            <div class="bg-[#F1F3F5] rounded-xl p-4 w-80 shrink-0 shadow-xs border border-[#E6E8EB]">
+                <div class="flex items-center justify-between mb-4 px-1">
+                    <h3 class="font-semibold text-sm tracking-wide text-[#4A90E2] uppercase">Em Progresso</h3>
+                    <span class="bg-[#DBEAFE] text-[#1E40AF] text-xs px-2 py-0.5 rounded-full font-bold" id="count-in-progress">0</span>
+                </div>
+                <div id="in-progress" class="space-y-3 min-h-[500px] transition-colors duration-200" ondragover="allowDrop(event)" ondrop="drop(event, 'in-progress')"></div>
+            </div>
+
+            <div class="bg-[#F1F3F5] rounded-xl p-4 w-80 shrink-0 shadow-xs border border-[#E6E8EB]">
+                <div class="flex items-center justify-between mb-4 px-1">
+                    <h3 class="font-semibold text-sm tracking-wide text-[#10B981] uppercase">Concluído</h3>
+                    <span class="bg-[#D1FAE5] text-[#065F46] text-xs px-2 py-0.5 rounded-full font-bold" id="count-done">0</span>
+                </div>
+                <div id="done" class="space-y-3 min-h-[500px] transition-colors duration-200" ondragover="allowDrop(event)" ondrop="drop(event, 'done')"></div>
+            </div>
+
+        </div>
+    </main>
 
     <script>
-        // Busca as tarefas do Back-end usando o IP da rede do Docker
-        fetch('http://localhost:5000/api/tasks')
+        // Mude para a URL real do seu backend quando fizer o deploy na nuvem!
+        const API_URL = 'http://localhost:5000/api/tasks';
+
+        // Carregar tarefas ao abrir a página
+        window.onload = loadTasks;
+
+        function loadTasks() {
+            // Limpa as colunas antes de renderizar
+            document.getElementById('todo').innerHTML = '';
+            document.getElementById('in-progress').innerHTML = '';
+            document.getElementById('done').innerHTML = '';
+
+            fetch(API_URL)
+                .then(res => res.json())
+                .then(tasks => {
+                    let counts = { todo: 0, 'in-progress': 0, done: 0 };
+
+                    tasks.forEach(task => {
+                        const container = document.getElementById(task.status);
+                        if (container) {
+                            counts[task.status]++;
+                            
+                            // Cria o cartão com o estilo clean do MeisterTask
+                            const card = document.createElement('div');
+                            card.className = 'bg-white p-4 rounded-lg shadow-sm border border-[#E6E8EB] cursor-grab hover:shadow-md transition duration-200 select-none';
+                            card.setAttribute('draggable', 'true');
+                            card.setAttribute('id', `task-${task.id}`);
+                            
+                            // Eventos de arrastar
+                            card.ondragstart = (e) => {
+                                e.dataTransfer.setData('text/plain', task.id);
+                                card.classList.add('dragging');
+                            };
+                            card.ondragend = () => card.classList.remove('dragging');
+
+                            card.innerText = task.title;
+                            container.appendChild(card);
+                        }
+                    });
+
+                    // Atualiza os contadores no topo de cada coluna
+                    document.getElementById('count-todo').innerText = counts.todo;
+                    document.getElementById('count-in-progress').innerText = counts['in-progress'];
+                    document.getElementById('count-done').innerText = counts.done;
+                })
+                .catch(err => console.error("Erro ao carregar tarefas:", err));
+        }
+
+        // Cria uma nova tarefa enviando para o Back-end
+        function createTask() {
+            const input = document.getElementById('task-title');
+            const title = input.value.trim();
+            if (!title) return;
+
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: title, status: 'todo' })
+            })
             .then(res => res.json())
-            .then(tasks => {
-                tasks.forEach(task => {
-                    const container = document.getElementById(task.status);
-                    if (container) {
-                        const card = document.createElement('div');
-                        card.className = 'card';
-                        card.innerText = task.title;
-                        container.appendChild(card);
-                    }
-                });
+            .then(() => {
+                input.value = '';
+                loadTasks(); // Recarrega o quadro
             });
+        }
+
+        // Funções de Drag and Drop
+        function allowDrop(e) {
+            e.preventDefault(); // Necessário para permitir que o drop aconteça
+        }
+
+        function drop(e, newStatus) {
+            e.preventDefault();
+            const taskId = e.dataTransfer.getData('text/plain');
+            
+            // Aqui, em um sistema real, você faria um fetch(PUT) para atualizar o status no backend.
+            // Para nosso MVP, vamos apenas simular visualmente e mover o elemento na tela:
+            const card = document.getElementById(`task-${taskId}`);
+            if (card) {
+                document.getElementById(newStatus).appendChild(card);
+                // Pequena gambiarra para atualizar os contadores locais sem recarregar tudo instantaneamente:
+                setTimeout(loadTasks, 200); 
+            }
+        }
     </script>
 </body>
 </html>

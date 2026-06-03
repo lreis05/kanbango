@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  kanban-backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+
+  kanban-frontend:
+    build: ./frontend
+    ports:
+      - "80:80" # Vai rodar na porta padrão da web (http://localhost)
+    depends_on:
+      - kanban-backend

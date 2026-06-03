@@ -6,9 +6,12 @@ services:
     ports:
       - "5000:5000"
 
+  
   kanban-frontend:
     build: ./frontend
     ports:
-      - "80:80" # Vai rodar na porta padrão da web (http://localhost)
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html # Adicione esta linha
     depends_on:
       - kanban-backend
